@@ -1,0 +1,16 @@
+{
+  "name": "Mi Producción",
+  "short_name": "Mi Producción",
+  "description": "Bitácora técnica offline-first para técnicos.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F3F4F6",
+  "theme_color": "#1E3A8A",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1006/1006555.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

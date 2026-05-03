@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mi Producción</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1E3A8A">
+  <script src="https://unpkg.com/dexie@4.0.4/dist/dexie.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+
+  <h2 class="sr-only" style="display:none;">Mi Producción</h2>
+  <div class="wrap">
+    <!-- 01 LOGIN -->
+    <div class="phone" id="view-login">
+      <div class="sb"><span>09:41</span>
+        <div class="sb-r"><svg viewBox="0 0 24 24">
+            <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+            <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+            <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+            <circle cx="12" cy="20" r=".5" fill="rgba(255,255,255,.5)" />
+          </svg><svg viewBox="0 0 24 24">
+            <rect x="2" y="7" width="20" height="11" rx="2" />
+            <path d="M22 11v2" />
+          </svg></div>
+      </div>
+      <div class="login-hero">
+        <div class="logo-ring"><svg viewBox="0 0 24 24">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+          </svg></div>
+        <div class="brand">Mi<span> Producción</span></div>
+        <div class="brand-tag">bitácora técnica · v3.0</div>
+      </div>
+      <div class="lf">
+        <input type="text" class="fi" id="login-email" placeholder="Correo electrónico" value="carlos@gasfield.com">
+        <input type="password" class="fi" id="login-password" placeholder="Contraseña" value="123456">
+        <div class="chk-row">
+          <div class="chk"><svg viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12" />
+            </svg></div><span class="chk-lbl">Mantener sesión iniciada</span>
+        </div>
+        <button class="btn-main" id="btn-login">Ingresar</button>
+      </div>
+    </div>
+
+    <!-- 02 DASHBOARD -->
+    <div class="phone" id="view-dashboard" style="position:relative;min-height:570px">
+      <div class="sb"><span>09:41</span>
+        <div class="sb-r"><svg viewBox="0 0 24 24">
+            <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+            <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+            <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+            <circle cx="12" cy="20" r=".5" fill="rgba(255,255,255,.5)" />
+          </svg><svg viewBox="0 0 24 24">
+            <rect x="2" y="7" width="20" height="11" rx="2" />
+            <path d="M22 11v2" />
+          </svg></div>
+      </div>
+      <!-- Dark Corporate Header -->
+      <div class="topbar">
+        <div class="topbar-left">
+          <div class="topbar-greeting">Hola, <span id="user-name">Técnico</span></div>
+          <div class="topbar-date" id="header-date">Sábado, 2 de Mayo 2026</div>
+        </div>
+        <div class="topbar-r">
+          <div class="topbar-search-icon">
+            <svg viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </div>
+          <div class="topbar-status" id="sync-status">
+            <svg viewBox="0 0 24 24">
+              <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
+            </svg>
+            <span class="topbar-status-text">En línea</span>
+          </div>
+          <div class="ib" id="btn-logout"><svg viewBox="0 0 24 24">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg></div>
+        </div>
+      </div>
+      <div class="dbody">
+        <div class="greet">Buen día,<strong>Técnico</strong></div>
+        <div class="cards2">
+          <div class="sc">
+            <div class="sc-lbl">Total del Día</div>
+            <div class="sc-amt" id="total-dia">$45.000</div>
+            <div class="sc-sub"><span class="sc-sub-dot"></span> Órdenes realizadas hoy: <b id="count-dia">3</b></div>
+          </div>
+          <div class="sc">
+            <div class="sc-lbl">Total Quincena <svg viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg></div>
+            <div class="sc-dr">01 May - 15 May ▾</div>
+            <div class="sc-amt" id="total-quincena">$450.000</div>
+          </div>
+        </div>
+        <div class="sec-t">Órdenes Recientes <span id="orders-count"
+            style="font-weight:normal; color:var(--muted)"></span></div>
+        <div id="recent-orders-list">
+          <!-- Rendered via JS -->
+        </div>
+      </div>
+      <div class="fab" id="btn-new-order"><svg viewBox="0 0 24 24">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg></div>
+    </div>
+
+    <!-- 03 NUEVA ORDEN -->
+    <div class="phone" id="view-new-order" style="position:relative;min-height:570px">
+      <div class="sb"><span>09:41</span>
+        <div class="sb-r"><svg viewBox="0 0 24 24">
+            <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+            <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+            <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+            <circle cx="12" cy="20" r=".5" fill="rgba(255,255,255,.5)" />
+          </svg><svg viewBox="0 0 24 24">
+            <rect x="2" y="7" width="20" height="11" rx="2" />
+          </svg></div>
+      </div>
+      <!-- Dark Corporate Header -->
+      <div class="no-header">
+        <div class="no-header-back btn-back">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6" /></svg>
+        </div>
+        <span class="no-header-title">Nueva Orden</span>
+      </div>
+      <!-- Form Body - White BG -->
+      <div class="no-body">
+        <div class="no-field-group">
+          <label class="no-label">Número de contrato</label>
+          <input type="text" class="no-input" id="new-contract" placeholder="Ej. 555545">
+        </div>
+        <div class="no-field-group">
+          <label class="no-label">Códigos de labor</label>
+          <div class="no-search-field">
+            <svg viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" id="labor-search" placeholder="Buscar código o labor (Ej: Válvula)" autocomplete="off">
+            <div class="search-results" id="search-results"></div>
+          </div>
+        </div>
+        <!-- Selected codes section -->
+        <div class="no-selected-label">Códigos seleccionados:</div>
+        <div id="new-order-items">
+          <!-- Rendered via JS -->
+        </div>
+        <!-- Attach photo -->
+        <div class="no-attach-photo" id="btn-attach-photo">
+          <svg viewBox="0 0 24 24">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          <span>Adjuntar foto (Opcional)</span>
+        </div>
+      </div>
+      <!-- Footer -->
+      <div class="no-footer">
+        <div class="no-total-row">
+          <span class="no-total-label">Total de la orden:</span>
+          <span class="no-total-amount" id="new-total">$0</span>
+        </div>
+        <button class="no-save-btn" id="btn-save-order">Guardar Orden</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="js/db.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/app.js"></script>
+</body>
+
+</html>
