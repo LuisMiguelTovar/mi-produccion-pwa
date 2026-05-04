@@ -29,6 +29,7 @@ body {
   background: var(--bg);
   min-height: 100vh;
   margin: 0;
+  overflow-x: hidden;
 }
 
 .wrap{display:block;width:100%;min-height:100vh;}
@@ -331,9 +332,9 @@ body {
 .no-save-btn:disabled{opacity:0.6;cursor:not-allowed}
 
 /* Date Range Picker */
-.date-range-picker{display:flex;align-items:center;gap:4px;margin-bottom:8px;background:#F0FAF4;border-radius:6px;padding:4px 6px;}
-.date-input{border:none;outline:none;background:transparent;font-size:11px;color:#059669;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;}
-.date-sep{font-size:11px;color:#059669;font-weight:600;}
+.date-range-picker{display:flex;flex-direction:column;align-items:flex-start;gap:5px;margin-bottom:8px;background:#F0FAF4;border-radius:6px;padding:6px;width:100%;}
+.date-input{border:none;outline:none;background:transparent;font-size:10px;color:#059669;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;width:100%;}
+.date-sep{display:none;}
 
 /* SEARCH DROPDOWN (shared) */
 .search-results { position: absolute; top: 100%; left: 0; right: 0; background: #FFFFFF; border: 1.5px solid #D1D5DB; border-radius: 10px; margin-top: 5px; max-height: 150px; overflow-y: auto; z-index: 20; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
@@ -381,8 +382,8 @@ body {
 /* Native FAB */
 .fab-native{
   position:fixed;
-  bottom:24px;
-  right:24px;
+  bottom:20px;
+  right:20px;
   width:60px;
   height:60px;
   border-radius:50%;
@@ -391,7 +392,7 @@ body {
   align-items:center;
   justify-content:center;
   cursor:pointer;
-  z-index:50;
+  z-index:9999;
   box-shadow:0 4px 14px rgba(249,115,22,.4);
   transition:transform 0.15s,box-shadow 0.15s;
 }
