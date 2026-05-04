@@ -2,20 +2,20 @@
 // Structured for offline-first: all writes go through saveOrdenToSupabase()
 // which can be intercepted by IndexedDB/SW when offline.
 
-const SUPABASE_URL = 'https://gkehnfqfzdcbgmhtqwpw.supabase.co';
+const SUPABASE_URL = 'https://gkehnfqfzdcbqmhtqwpw.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Co2i-ANKLLIKd6IWRpYzdQ_96CFVLdw';
 
 // ── Initialize Supabase Client ──────────────────────────────────
 let supabaseClient = null;
 try {
   // The UMD bundle exposes `window.supabase` with `createClient`
-  const createFn = (window.supabase && window.supabase.createClient) 
+  const createFn = (window.supabase && window.supabase.createClient)
     || (window.supabase && window.supabase.default && window.supabase.default.createClient);
-  
+
   if (!createFn) {
     throw new Error('createClient function not found on window.supabase');
   }
-  
+
   supabaseClient = createFn(SUPABASE_URL, SUPABASE_ANON_KEY);
   console.log('✅ Supabase client initialized successfully');
   console.log('   URL:', SUPABASE_URL);
@@ -27,7 +27,7 @@ try {
 // ── Auth — Real Supabase Auth ───────────────────────────────────
 
 // Login with email + password
-window.login = async function(email, password) {
+window.login = async function (email, password) {
   if (!supabaseClient) {
     // Fallback for offline: mock login
     localStorage.setItem('tecnico_name', email.split('@')[0]);
@@ -36,7 +36,7 @@ window.login = async function(email, password) {
   }
 
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  
+
   if (!error && data.user) {
     // Cache user info locally for offline access
     const nombre = data.user.user_metadata?.nombre_mostrar || email.split('@')[0];
@@ -44,12 +44,12 @@ window.login = async function(email, password) {
     localStorage.setItem('tecnico_name', nombre);
     localStorage.setItem('tecnico_email', email);
   }
-  
+
   return { data, error };
 };
 
 // Register new user with name in metadata
-window.register = async function(email, password, nombre) {
+window.register = async function (email, password, nombre) {
   if (!supabaseClient) {
     return { data: null, error: { message: 'Sin conexión a Supabase' } };
   }
@@ -73,7 +73,7 @@ window.register = async function(email, password, nombre) {
 };
 
 // Logout
-window.logout = async function() {
+window.logout = async function () {
   if (supabaseClient) {
     await supabaseClient.auth.signOut();
   }
@@ -83,7 +83,7 @@ window.logout = async function() {
 };
 
 // Get current user — checks Supabase session, falls back to localStorage
-window.getCurrentUser = function() {
+window.getCurrentUser = function () {
   // Try localStorage first (fast, works offline)
   const email = localStorage.getItem('tecnico_email');
   if (email) {
@@ -97,9 +97,9 @@ window.getCurrentUser = function() {
 };
 
 // Check Supabase session and refresh local cache
-window.checkSession = async function() {
+window.checkSession = async function () {
   if (!supabaseClient) return null;
-  
+
   try {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session && session.user) {
@@ -119,7 +119,7 @@ window.checkSession = async function() {
 // ── Save Order to Supabase (the core function) ─────────────────
 // This is the primary data service. In the future, when offline,
 // the caller (app.js) will catch failures and queue to IndexedDB.
-window.saveOrdenToSupabase = async function(orderData, itemsData) {
+window.saveOrdenToSupabase = async function (orderData, itemsData) {
   if (!supabaseClient) {
     throw new Error('Supabase client not available');
   }
@@ -169,21 +169,21 @@ window.saveOrdenToSupabase = async function(orderData, itemsData) {
 };
 
 // ── Sync unsynced local orders to Supabase ──────────────────────
-window.syncData = async function() {
+window.syncData = async function () {
   if (!navigator.onLine) return;
   if (!supabaseClient) return;
-  
+
   console.log('🔄 Online: Starting sync...');
-  
+
   try {
     const unsyncedOrdenes = await window.getUnsyncedOrdenes();
-    
+
     for (const localOrden of unsyncedOrdenes) {
       console.log('Syncing order:', localOrden.numero_contrato);
-      
+
       const items = await db.orden_items.where('orden_id').equals(localOrden.id).toArray();
       const totalOrden = items.reduce((sum, item) => sum + item.subtotal, 0);
-      
+
       try {
         const orderData = {
           numero_contrato: localOrden.numero_contrato,
@@ -197,7 +197,7 @@ window.syncData = async function() {
         }));
 
         const result = await window.saveOrdenToSupabase(orderData, itemsData);
-        
+
         // Mark as synced in IndexedDB
         await window.markOrdenAsSynced(localOrden.id, result.ordenId);
         console.log('✅ Order synced:', localOrden.numero_contrato);
@@ -205,9 +205,9 @@ window.syncData = async function() {
         console.warn('⚠️ Sync failed for order', localOrden.numero_contrato, e.message);
       }
     }
-    
+
     window.dispatchEvent(new Event('sync-complete'));
-    
+
   } catch (error) {
     console.error('Sync error:', error);
   }
