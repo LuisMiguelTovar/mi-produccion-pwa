@@ -167,11 +167,49 @@ document.addEventListener('DOMContentLoaded', () => {
     showView(viewDashboard);
   }));
 
+  let currentAllOrders = [];
+
   // --- Dashboard Logic ---
   async function loadDashboard() {
-    const orders = await getOrdenesRecientes();
-    renderOrdersList(orders);
-    calculateStats(orders);
+    currentAllOrders = await getOrdenesRecientes();
+    renderOrdersList(currentAllOrders);
+    calculateStats(currentAllOrders);
+  }
+
+  // --- Search Logic ---
+  const topbarSearchBtn = document.getElementById('topbar-search-btn');
+  const topbarSearchInput = document.getElementById('topbar-search-input');
+  const topbarSearchContainer = document.getElementById('topbar-search-container');
+  
+  if (topbarSearchBtn && topbarSearchInput) {
+    topbarSearchBtn.addEventListener('click', () => {
+      topbarSearchContainer.classList.toggle('active');
+      topbarSearchInput.classList.toggle('active');
+      if (topbarSearchInput.classList.contains('active')) {
+        topbarSearchInput.focus();
+      } else {
+        topbarSearchInput.value = '';
+        renderOrdersList(currentAllOrders);
+      }
+    });
+
+    topbarSearchInput.addEventListener('input', (e) => {
+      const term = e.target.value.trim().toLowerCase();
+      if (!term) {
+        renderOrdersList(currentAllOrders);
+        return;
+      }
+      const filtered = currentAllOrders.filter(o => String(o.numero_contrato).toLowerCase().includes(term));
+      renderOrdersList(filtered);
+    });
+  }
+
+  // --- Fortnight Select Logic ---
+  const quincenaSelect = document.getElementById('quincena-select');
+  if (quincenaSelect) {
+    quincenaSelect.addEventListener('change', () => {
+      calculateStats(currentAllOrders);
+    });
   }
 
   function renderOrdersList(orders) {
@@ -183,7 +221,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    orders.slice(0, 5).forEach(order => {
+    const borderColors = ['#3B82F6', '#10B981', '#8B5CF6', '#F97316', '#EF4444'];
+
+    orders.slice(0, 5).forEach((order, index) => {
       const isSynced = order.estado_sincronizacion;
       const timeStr = new Date(order.fecha_creacion).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       const dateObj = new Date(order.fecha_creacion);
@@ -191,14 +231,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const isToday = dateObj.toDateString() === today.toDateString();
       const displayTime = isToday ? `Hoy ${timeStr}` : timeStr;
       
+      const randomColor = borderColors[index % borderColors.length];
+      const statusClass = isSynced ? 'sincronizada' : 'pendiente';
+      const statusText = isSynced ? 'Sincronizada' : 'Pendiente';
+
       const el = document.createElement('div');
-      el.className = `oc ${!isSynced ? 'unsynced' : ''}`;
+      el.className = 'oc';
+      el.style.borderLeftColor = randomColor;
       el.innerHTML = `
         <div class="oc-left">
           <div class="oc-contract">Contrato #${order.numero_contrato}</div>
-          <div class="oc-code">Cód. ${order.codigos || 'N/A'}</div>
+          <div class="oc-status ${statusClass}">
+            <div class="oc-status-dot"></div>
+            ${statusText}
+          </div>
           <div class="oc-amt">${formatMoney(order.total)}</div>
-          <div class="oc-time">${!isSynced ? 'Pendiente' : displayTime}</div>
+          <div class="oc-time">${displayTime}</div>
         </div>
         <div class="oc-chevron">
           <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
@@ -214,14 +262,24 @@ document.addEventListener('DOMContentLoaded', () => {
     let countDia = 0;
     let totalQuincena = 0;
 
+    const filterVal = document.getElementById('quincena-select') ? document.getElementById('quincena-select').value : 'current';
+
     orders.forEach(o => {
-      const oDate = o.fecha_creacion.split('T')[0];
-      if (oDate === today) {
+      const oDateStr = o.fecha_creacion.split('T')[0];
+      if (oDateStr === today) {
         totalDia += o.total;
         countDia++;
       }
-      // Simple quincena simulation: add all for now
-      totalQuincena += o.total;
+      
+      const oDate = new Date(o.fecha_creacion);
+      const day = oDate.getDate();
+      
+      // Simulate fortnight filter calculation
+      if (filterVal === 'current') {
+         if (day >= 1 && day <= 15) totalQuincena += o.total;
+      } else if (filterVal === 'prev') {
+         if (day >= 16 && day <= 31) totalQuincena += o.total;
+      }
     });
 
     totalDiaEl.textContent = formatMoney(totalDia);
@@ -319,7 +377,10 @@ document.addEventListener('DOMContentLoaded', () => {
       div.className = 'ci';
       div.innerHTML = `
         <div class="ci-top">
-          <div class="cn">${item.codigo}</div>
+          <div style="display:flex; align-items:center; gap: 8px;">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:#4B5563;fill:none;stroke-width:2;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            <div class="cn">${item.codigo}</div>
+          </div>
           <div class="xb" data-idx="${index}"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
         </div>
         <div class="cd">${item.descripcion}</div>
