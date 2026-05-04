@@ -239,17 +239,23 @@ document.addEventListener('DOMContentLoaded', () => {
       el.className = 'oc';
       el.style.borderLeftColor = randomColor;
       el.innerHTML = `
-        <div class="oc-left">
+        <div class="oc-icon" style="width:40px;height:40px;border-radius:50%;background:#DBEAFE;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:#1E40AF;fill:none;stroke-width:2;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        </div>
+        <div class="oc-info" style="flex:1;display:flex;flex-direction:column;gap:3px;margin-left:12px;">
           <div class="oc-contract">Contrato #${order.numero_contrato}</div>
+          <div class="oc-code">Cód. ${order.codigos || 'N/A'}</div>
           <div class="oc-status ${statusClass}">
             <div class="oc-status-dot"></div>
             ${statusText}
           </div>
-          <div class="oc-amt">${formatMoney(order.total)}</div>
-          <div class="oc-time">${displayTime}</div>
         </div>
-        <div class="oc-chevron">
-          <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        <div class="oc-right" style="display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;height:100%;">
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+            <div class="oc-amt">${formatMoney(order.total)}</div>
+            <div class="oc-time">Creada ${displayTime.toLowerCase()}</div>
+          </div>
+          <div class="oc-chevron" style="margin-left:0;margin-top:auto;"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
         </div>
       `;
       recentOrdersList.appendChild(el);
@@ -367,37 +373,54 @@ document.addEventListener('DOMContentLoaded', () => {
     renderNewOrderItems();
   }
 
+  // Clear all button listener
+  const btnClearAll = document.getElementById('btn-clear-all');
+  if (btnClearAll) {
+    btnClearAll.addEventListener('click', () => {
+      currentNewOrderItems = [];
+      renderNewOrderItems();
+    });
+  }
+
   function renderNewOrderItems() {
     newOrderItemsList.innerHTML = '';
     let total = 0;
 
+    // Update badge count
+    const badge = document.getElementById('selected-codes-count');
+    if (badge) badge.textContent = currentNewOrderItems.length;
+
     currentNewOrderItems.forEach((item, index) => {
       total += item.subtotal;
       const div = document.createElement('div');
-      div.className = 'ci';
+      div.className = 'cart-item';
       div.innerHTML = `
-        <div class="ci-top">
-          <div style="display:flex; align-items:center; gap: 8px;">
-            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:#4B5563;fill:none;stroke-width:2;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-            <div class="cn">${item.codigo}</div>
-          </div>
-          <div class="xb" data-idx="${index}"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+        <div class="cart-item-icon">
+          <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
         </div>
-        <div class="cd">${item.descripcion}</div>
-        <div class="ci-bottom">
-          <div class="stepr">
-            <div class="sb2" data-idx="${index}" data-delta="-1">−</div>
-            <div class="sv">${item.cantidad}</div>
-            <div class="sb2" data-idx="${index}" data-delta="1">+</div>
+        <div class="cart-item-center">
+          <div class="cart-item-info">
+            <div class="cart-item-code">${item.codigo}</div>
+            <div class="cart-item-desc">${item.descripcion}</div>
           </div>
-          <div class="cst">${formatMoney(item.subtotal)}</div>
+          <div class="cart-stepper">
+            <div class="cs-btn" data-idx="${index}" data-delta="-1">−</div>
+            <div class="cs-val">${item.cantidad}</div>
+            <div class="cs-btn" data-idx="${index}" data-delta="1">+</div>
+          </div>
+        </div>
+        <div class="cart-item-right">
+          <div class="cart-item-del" data-idx="${index}">
+            <svg viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          </div>
+          <div class="cart-item-total">${formatMoney(item.subtotal)}</div>
         </div>
       `;
       newOrderItemsList.appendChild(div);
     });
 
     // Attach Stepper Listeners
-    newOrderItemsList.querySelectorAll('.sb2').forEach(btn => {
+    newOrderItemsList.querySelectorAll('.cs-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const idx = parseInt(e.currentTarget.dataset.idx);
         const delta = parseInt(e.currentTarget.dataset.delta);
@@ -406,10 +429,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Attach Remove Listeners
-    newOrderItemsList.querySelectorAll('.xb').forEach(btn => {
+    newOrderItemsList.querySelectorAll('.cart-item-del').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const idx = parseInt(e.currentTarget.dataset.idx);
-        removeItem(idx);
+        const el = e.target.closest('.cart-item-del');
+        if (el) {
+          const idx = parseInt(el.dataset.idx);
+          removeItem(idx);
+        }
       });
     });
 
