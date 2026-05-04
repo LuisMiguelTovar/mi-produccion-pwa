@@ -89,6 +89,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Formatting helpers
   const formatMoney = (amount) => '$' + Number(amount).toLocaleString('es-CO');
   
+  const getLocalDateStr = (isoString) => {
+    const d = new Date(isoString);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  
   // ── Auth Submit Handler (Login or Register) ──
   btnLogin.addEventListener('click', async () => {
     const email = loginEmailInput.value.trim();
@@ -233,16 +241,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderOrdersList(orders) {
     recentOrdersList.innerHTML = '';
-    ordersCountBadge.textContent = orders.length > 0 ? `(${orders.length})` : '';
     
-    if (orders.length === 0) {
-      recentOrdersList.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--muted); font-size: 12px;">No hay órdenes recientes</div>';
+    // Filter by Quincena dates so the "Órdenes Recientes" list respects it
+    const filterFrom = document.getElementById('date-from')?.value;
+    const filterTo = document.getElementById('date-to')?.value;
+
+    let filteredOrders = orders;
+    if (filterFrom && filterTo) {
+      filteredOrders = orders.filter(o => {
+        const oDateStr = getLocalDateStr(o.fecha_creacion);
+        return oDateStr >= filterFrom && oDateStr <= filterTo;
+      });
+    }
+
+    ordersCountBadge.textContent = filteredOrders.length > 0 ? `(${filteredOrders.length})` : '';
+    
+    if (filteredOrders.length === 0) {
+      recentOrdersList.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--muted); font-size: 12px;">No hay órdenes recientes en este rango</div>';
       return;
     }
 
     const borderColors = ['#3B82F6', '#10B981', '#8B5CF6', '#F97316', '#EF4444'];
 
-    orders.slice(0, 5).forEach((order, index) => {
+    filteredOrders.slice(0, 5).forEach((order, index) => {
       const isSynced = order.estado_sincronizacion;
       const timeStr = new Date(order.fecha_creacion).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       const dateObj = new Date(order.fecha_creacion);
@@ -309,7 +330,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function calculateStats(orders) {
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     let totalDia = 0;
     let countDia = 0;
     let totalQuincena = 0;
@@ -318,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const filterTo = document.getElementById('date-to')?.value;
 
     orders.forEach(o => {
-      const oDateStr = o.fecha_creacion.split('T')[0];
+      const oDateStr = getLocalDateStr(o.fecha_creacion);
       if (oDateStr === today) {
         totalDia += o.total;
         countDia++;
@@ -583,7 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Reset form and go back
       resetNewOrderForm();
       showView(viewDashboard);
-      loadDashboard();
+      await loadDashboard(); // Force re-render synchronously
 
       // Try background sync if saved locally
       if (!savedOnline) {
