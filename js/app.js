@@ -240,6 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderOrdersList(orders) {
+    console.log('Datos puros de Supabase/BD local:', orders);
     recentOrdersList.innerHTML = '';
     
     // Filter by Quincena dates so the "Órdenes Recientes" list respects it
@@ -247,23 +248,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const filterTo = document.getElementById('date-to')?.value;
 
     let filteredOrders = orders;
+    let filterApplied = false;
+
     if (filterFrom && filterTo) {
-      filteredOrders = orders.filter(o => {
-        const oDateStr = getLocalDateStr(o.fecha_creacion);
-        return oDateStr >= filterFrom && oDateStr <= filterTo;
-      });
+      try {
+        const [fYear, fMonth, fDay] = filterFrom.split('-');
+        const timeInicio = new Date(fYear, fMonth - 1, fDay, 0, 0, 0).getTime();
+
+        const [tYear, tMonth, tDay] = filterTo.split('-');
+        const timeFin = new Date(tYear, tMonth - 1, tDay, 23, 59, 59).getTime();
+
+        filteredOrders = orders.filter(o => {
+          const timeOrden = new Date(o.fecha_creacion).getTime();
+          return timeOrden >= timeInicio && timeOrden <= timeFin;
+        });
+        filterApplied = true;
+      } catch (err) {
+        console.error('Error aplicando filtro de fechas:', err);
+      }
     }
 
-    ordersCountBadge.textContent = filteredOrders.length > 0 ? `(${filteredOrders.length})` : '';
+    if (filterApplied && filteredOrders.length === 0) {
+      // Fallback a las últimas 20 si no hay resultados en el filtro
+      filteredOrders = orders;
+    } else if (!filterApplied) {
+      filteredOrders = orders;
+    }
+
+    console.log('Órdenes que pasaron el filtro:', filteredOrders);
+
+    const ordersToShow = filteredOrders.slice(0, 20);
+    ordersCountBadge.textContent = ordersToShow.length > 0 ? `(${ordersToShow.length})` : '';
     
-    if (filteredOrders.length === 0) {
-      recentOrdersList.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--muted); font-size: 12px;">No hay órdenes recientes en este rango</div>';
+    if (ordersToShow.length === 0) {
+      recentOrdersList.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--muted); font-size: 12px;">No hay órdenes recientes</div>';
       return;
     }
 
     const borderColors = ['#3B82F6', '#10B981', '#8B5CF6', '#F97316', '#EF4444'];
 
-    filteredOrders.slice(0, 5).forEach((order, index) => {
+    ordersToShow.forEach((order, index) => {
       const isSynced = order.estado_sincronizacion;
       const timeStr = new Date(order.fecha_creacion).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       const dateObj = new Date(order.fecha_creacion);
@@ -331,7 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function calculateStats(orders) {
     const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).getTime();
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).getTime();
+    
     let totalDia = 0;
     let countDia = 0;
     let totalQuincena = 0;
@@ -339,17 +365,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const filterFrom = document.getElementById('date-from')?.value;
     const filterTo = document.getElementById('date-to')?.value;
 
+    let timeInicio = 0, timeFin = Infinity;
+    if (filterFrom && filterTo) {
+      try {
+        const [fYear, fMonth, fDay] = filterFrom.split('-');
+        timeInicio = new Date(fYear, fMonth - 1, fDay, 0, 0, 0).getTime();
+
+        const [tYear, tMonth, tDay] = filterTo.split('-');
+        timeFin = new Date(tYear, tMonth - 1, tDay, 23, 59, 59).getTime();
+      } catch (e) {
+        console.error('Error calculando fechas para stats', e);
+      }
+    }
+
     orders.forEach(o => {
-      const oDateStr = getLocalDateStr(o.fecha_creacion);
-      if (oDateStr === today) {
+      const timeOrden = new Date(o.fecha_creacion).getTime();
+      if (timeOrden >= todayStart && timeOrden <= todayEnd) {
         totalDia += o.total;
         countDia++;
       }
       
-      if (filterFrom && filterTo) {
-        if (oDateStr >= filterFrom && oDateStr <= filterTo) {
-          totalQuincena += o.total;
-        }
+      if (timeInicio && timeFin && timeOrden >= timeInicio && timeOrden <= timeFin) {
+        totalQuincena += o.total;
       }
     });
 
