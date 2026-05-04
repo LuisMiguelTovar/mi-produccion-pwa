@@ -9,14 +9,14 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1E3A8A">
   <script src="https://unpkg.com/dexie@4.0.4/dist/dexie.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 </head>
 
 <body>
 
   <h2 class="sr-only" style="display:none;">Mi Producción</h2>
   <div class="wrap">
-    <!-- 01 LOGIN -->
+    <!-- 01 AUTH (Login / Register) -->
     <div class="phone" id="view-login">
       <div class="sb"><span>09:41</span>
         <div class="sb-r"><svg viewBox="0 0 24 24">
@@ -34,17 +34,23 @@
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
           </svg></div>
         <div class="brand">Mi<span> Producción</span></div>
-        <div class="brand-tag">bitácora técnica · v3.0</div>
+        <div class="brand-tag" id="auth-mode-tag">iniciar sesión · v3.0</div>
       </div>
       <div class="lf">
-        <input type="text" class="fi" id="login-email" placeholder="Correo electrónico" value="carlos@gasfield.com">
-        <input type="password" class="fi" id="login-password" placeholder="Contraseña" value="123456">
-        <div class="chk-row">
+        <!-- Name field (only visible in Register mode) -->
+        <input type="text" class="fi" id="register-name" placeholder="Nombre a mostrar (Ej: Miguel)"
+          style="display:none;">
+        <input type="email" class="fi" id="login-email" placeholder="Correo electrónico">
+        <input type="password" class="fi" id="login-password" placeholder="Contraseña">
+        <div class="chk-row" id="chk-remember">
           <div class="chk"><svg viewBox="0 0 24 24">
               <polyline points="20 6 9 17 4 12" />
             </svg></div><span class="chk-lbl">Mantener sesión iniciada</span>
         </div>
         <button class="btn-main" id="btn-login">Ingresar</button>
+        <div class="auth-toggle" id="auth-toggle">
+          ¿No tienes cuenta? <span id="toggle-auth-link">Regístrate aquí</span>
+        </div>
       </div>
     </div>
 
@@ -132,7 +138,9 @@
       <!-- Dark Corporate Header -->
       <div class="no-header">
         <div class="no-header-back btn-back">
-          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6" /></svg>
+          <svg viewBox="0 0 24 24">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
         </div>
         <span class="no-header-title">Nueva Orden</span>
       </div>
@@ -161,8 +169,8 @@
         <!-- Attach photo -->
         <div class="no-attach-photo" id="btn-attach-photo">
           <svg viewBox="0 0 24 24">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-            <circle cx="12" cy="13" r="4"/>
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+            <circle cx="12" cy="13" r="4" />
           </svg>
           <span>Adjuntar foto (Opcional)</span>
         </div>
@@ -179,9 +187,27 @@
 
   </div>
 
-  <script src="js/db.js"></script>
-  <script src="js/supabase.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/db.js?v=7"></script>
+  <script src="js/supabase.js?v=7"></script>
+  <script src="js/app.js?v=7"></script>
+  <script>
+    // One-time cache purge to ensure fresh JS is served
+    if ('caches' in window && !sessionStorage.getItem('cache_cleared_v7')) {
+      caches.keys().then(names => {
+        Promise.all(names.map(n => caches.delete(n))).then(() => {
+          sessionStorage.setItem('cache_cleared_v7', '1');
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(regs => {
+              regs.forEach(r => r.unregister());
+              window.location.reload();
+            });
+          } else {
+            window.location.reload();
+          }
+        });
+      });
+    }
+  </script>
 </body>
 
 </html>

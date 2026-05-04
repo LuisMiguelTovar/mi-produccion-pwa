@@ -20,6 +20,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const ordersCountBadge = document.getElementById('orders-count');
   const syncStatus = document.getElementById('sync-status');
   
+  // Auth elements
+  const registerNameInput = document.getElementById('register-name');
+  const loginEmailInput = document.getElementById('login-email');
+  const loginPasswordInput = document.getElementById('login-password');
+  const authModeTag = document.getElementById('auth-mode-tag');
+  const toggleAuthLink = document.getElementById('toggle-auth-link');
+  const authToggleDiv = document.getElementById('auth-toggle');
+  const chkRemember = document.getElementById('chk-remember');
+
   // New Order Elements
   const laborSearch = document.getElementById('labor-search');
   const searchResults = document.getElementById('search-results');
@@ -30,14 +39,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let currentNewOrderItems = [];
 
+  // Auth state
+  let isRegisterMode = false;
+
+  // Toggle between Login / Register
+  function setAuthMode(registerMode) {
+    isRegisterMode = registerMode;
+    if (registerMode) {
+      registerNameInput.style.display = 'block';
+      chkRemember.style.display = 'none';
+      btnLogin.textContent = 'Crear cuenta';
+      authModeTag.textContent = 'registro · v3.0';
+      authToggleDiv.innerHTML = '¿Ya tienes cuenta? <span>Inicia sesión</span>';
+      authToggleDiv.querySelector('span').addEventListener('click', () => setAuthMode(false));
+    } else {
+      registerNameInput.style.display = 'none';
+      chkRemember.style.display = 'flex';
+      btnLogin.textContent = 'Ingresar';
+      authModeTag.textContent = 'iniciar sesión · v3.0';
+      authToggleDiv.innerHTML = '¿No tienes cuenta? <span>Regístrate aquí</span>';
+      authToggleDiv.querySelector('span').addEventListener('click', () => setAuthMode(true));
+    }
+  }
+  toggleAuthLink.addEventListener('click', () => setAuthMode(true));
+
   // Init
   initApp();
 
-  function initApp() {
-    const user = window.getCurrentUser();
+  async function initApp() {
+    // Try to restore session from Supabase first
+    const sessionUser = await window.checkSession();
+    const user = sessionUser || window.getCurrentUser();
+    
     if (user) {
       showView(viewDashboard);
-      userNameEl.textContent = user.name;
+      userNameEl.textContent = user.name || 'Técnico';
       loadDashboard();
       updateSyncStatus();
     } else {
@@ -53,29 +89,72 @@ document.addEventListener('DOMContentLoaded', () => {
   // Formatting helpers
   const formatMoney = (amount) => '$' + Number(amount).toLocaleString('es-CO');
   
-  // Handlers
+  // ── Auth Submit Handler (Login or Register) ──
   btnLogin.addEventListener('click', async () => {
-    const email = document.getElementById('login-email').value;
-    const pass = document.getElementById('login-password').value;
+    const email = loginEmailInput.value.trim();
+    const pass = loginPasswordInput.value.trim();
     
-    btnLogin.disabled = true;
-    btnLogin.textContent = 'Ingresando...';
-    
-    const { data, error } = await window.login(email, pass);
-    
-    btnLogin.disabled = false;
-    btnLogin.textContent = 'Ingresar';
+    if (!email || !pass) {
+      showToast('Completa todos los campos', 'error');
+      return;
+    }
 
-    if (!error) {
-      initApp();
-      window.syncData(); // Attempt initial sync
+    if (isRegisterMode) {
+      // ── REGISTER MODE ──
+      const nombre = registerNameInput.value.trim();
+      if (!nombre) {
+        showToast('Ingresa tu nombre', 'error');
+        return;
+      }
+
+      btnLogin.disabled = true;
+      btnLogin.textContent = 'Creando cuenta...';
+
+      const { data, error } = await window.register(email, pass, nombre);
+
+      btnLogin.disabled = false;
+      btnLogin.textContent = 'Crear cuenta';
+
+      if (error) {
+        showToast(error.message || 'Error al registrar', 'error');
+        return;
+      }
+
+      showToast('✅ Cuenta creada exitosamente', 'success');
+      // Auto-login after registration
+      userNameEl.textContent = nombre;
+      showView(viewDashboard);
+      loadDashboard();
+      updateSyncStatus();
+      window.syncData();
+
     } else {
-      alert('Error de login');
+      // ── LOGIN MODE ──
+      btnLogin.disabled = true;
+      btnLogin.textContent = 'Ingresando...';
+
+      const { data, error } = await window.login(email, pass);
+
+      btnLogin.disabled = false;
+      btnLogin.textContent = 'Ingresar';
+
+      if (error) {
+        showToast(error.message || 'Error de inicio de sesión', 'error');
+        return;
+      }
+
+      // Extract name from user metadata
+      const user = window.getCurrentUser();
+      userNameEl.textContent = user ? user.name : 'Técnico';
+      showView(viewDashboard);
+      loadDashboard();
+      updateSyncStatus();
+      window.syncData();
     }
   });
 
-  btnLogout.addEventListener('click', () => {
-    window.logout();
+  btnLogout.addEventListener('click', async () => {
+    await window.logout();
     showView(viewLogin);
   });
 
@@ -277,43 +356,135 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   btnSaveOrder.addEventListener('click', async () => {
-    if (!newContractInput.value) {
-      alert('Debe ingresar un número de contrato');
+    // Validation
+    if (!newContractInput.value.trim()) {
+      showToast('Debe ingresar un número de contrato', 'error');
       return;
     }
     if (currentNewOrderItems.length === 0) {
-      alert('Debe agregar al menos un código de labor');
+      showToast('Debe agregar al menos un código de labor', 'error');
       return;
     }
 
-    const user = window.getCurrentUser();
-    
+    // Calculate total
+    const totalOrden = currentNewOrderItems.reduce((sum, i) => sum + i.subtotal, 0);
+
+    // Loading state
     btnSaveOrder.disabled = true;
+    const originalText = btnSaveOrder.textContent;
     btnSaveOrder.textContent = 'Guardando...';
+    btnSaveOrder.style.opacity = '0.7';
 
-    const orderPayload = {
-      tecnico_id: user.id,
-      numero_contrato: newContractInput.value,
-      fecha_creacion: new Date().toISOString()
-    };
+    try {
+      // Prepare payloads
+      const orderData = {
+        numero_contrato: newContractInput.value.trim(),
+        total_orden: totalOrden
+      };
 
-    const itemsPayload = currentNewOrderItems.map(i => ({
-      codigo_labor_id: i.codigo_labor_id,
-      cantidad: i.cantidad,
-      subtotal: i.subtotal
-    }));
+      const itemsData = currentNewOrderItems.map(i => ({
+        labor_codigo: i.codigo,       // e.g. '1009933'
+        cantidad: i.cantidad,
+        subtotal: i.subtotal
+      }));
 
-    await saveOrden(orderPayload, itemsPayload);
-    
-    btnSaveOrder.disabled = false;
-    btnSaveOrder.textContent = 'Guardar Orden';
-    
-    // Attempt sync
-    window.syncData();
-    
-    showView(viewDashboard);
-    loadDashboard();
+      let savedOnline = false;
+
+      // ── Try Supabase first (online path) ──
+      if (navigator.onLine) {
+        try {
+          await window.saveOrdenToSupabase(orderData, itemsData);
+          savedOnline = true;
+          console.log('✅ Orden guardada en Supabase');
+        } catch (supaError) {
+          console.warn('⚠️ Supabase save failed, falling back to local:', supaError.message);
+        }
+      }
+
+      // ── Fallback: save locally in IndexedDB ──
+      if (!savedOnline) {
+        const user = window.getCurrentUser();
+        const localOrderPayload = {
+          tecnico_id: user ? user.id : null,
+          numero_contrato: newContractInput.value.trim(),
+          fecha_creacion: new Date().toISOString()
+        };
+
+        const localItemsPayload = currentNewOrderItems.map(i => ({
+          codigo_labor_id: i.codigo_labor_id,
+          labor_codigo: i.codigo,
+          cantidad: i.cantidad,
+          subtotal: i.subtotal
+        }));
+
+        await saveOrden(localOrderPayload, localItemsPayload);
+        console.log('💾 Orden guardada localmente (offline)');
+      }
+
+      // ── Success ──
+      showToast(savedOnline 
+        ? '✅ Orden guardada exitosamente' 
+        : '💾 Orden guardada localmente. Se sincronizará al tener conexión.', 
+        'success'
+      );
+
+      // Reset form and go back
+      resetNewOrderForm();
+      showView(viewDashboard);
+      loadDashboard();
+
+      // Try background sync if saved locally
+      if (!savedOnline) {
+        window.syncData();
+      }
+
+    } catch (error) {
+      console.error('Error saving order:', error);
+      showToast('Error al guardar la orden. Intente nuevamente.', 'error');
+    } finally {
+      // Restore button
+      btnSaveOrder.disabled = false;
+      btnSaveOrder.textContent = originalText;
+      btnSaveOrder.style.opacity = '1';
+    }
   });
+
+  // ── Toast Notification ──
+  function showToast(message, type = 'success') {
+    // Remove existing toast
+    const existing = document.querySelector('.toast-notification');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      color: white;
+      z-index: 9999;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      animation: toastIn 0.3s ease;
+      max-width: 290px;
+      text-align: center;
+      background: ${type === 'success' ? '#16A34A' : '#DC2626'};
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // Auto dismiss
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
 
   // --- Network State ---
   function updateSyncStatus() {

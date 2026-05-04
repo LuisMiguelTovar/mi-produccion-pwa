@@ -39,7 +39,7 @@ CREATE TABLE orden_items (
 
 -- Insert initial mock data for 'codigos_labor'
 INSERT INTO codigos_labor (codigo, descripcion, valor_pesos) VALUES
-('1009933', 'Válvula interna', 10867),
+('1009933', 'Valvula interna', 10867),
 ('1001949', 'Regulador', 19932),
 ('1009946', 'Medidor', 22392),
 ('1001954', 'Elevador', 25800),

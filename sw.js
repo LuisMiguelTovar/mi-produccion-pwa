@@ -1,6 +1,6 @@
 // sw.js
 
-const CACHE_NAME = 'gasfield-cache-v4';
+const CACHE_NAME = 'miproduccion-cache-v8';
 const urlsToCache = [
   './',
   './index.html',
@@ -10,7 +10,7 @@ const urlsToCache = [
   './js/supabase.js',
   './manifest.json',
   'https://unpkg.com/dexie@4.0.4/dist/dexie.js',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js'
 ];
 
 self.addEventListener('install', event => {
@@ -23,8 +23,10 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // We only want to intercept static files, not Supabase API calls.
-  if (event.request.url.includes('supabase.co')) {
+  // Skip non-GET requests (POST, PATCH, DELETE = data mutations)
+  if (event.request.method !== 'GET') return;
+  // Skip Supabase API calls
+  if (event.request.url.includes('supabase.co') || event.request.url.includes('supabase')) {
     return;
   }
 

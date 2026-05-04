@@ -105,3 +105,8 @@ async function markOrdenAsSynced(id, newId) {
     }
   });
 }
+
+// ── Export to window for cross-script access ──
+window.getUnsyncedOrdenes = getUnsyncedOrdenes;
+window.markOrdenAsSynced = markOrdenAsSynced;
+

@@ -1,99 +1,215 @@
-// js/supabase.js
+// js/supabase.js — Supabase client + data service layer
+// Structured for offline-first: all writes go through saveOrdenToSupabase()
+// which can be intercepted by IndexedDB/SW when offline.
 
-const supabaseUrl = 'https://tuesupabaseurlmock.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1ZXN1cGFiYXNldXJsbW9jayIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzA0MDY3MjAwLCJleHAiOjIwMTk2NDMyMDB9.TuMockKeyParaSupabaseQueNoEsRealPeroSirveParaLaEstructura';
-const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+const SUPABASE_URL = 'https://gkehnfqfzdcbgmhtqwpw.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Co2i-ANKLLIKd6IWRpYzdQ_96CFVLdw';
 
-// Auth functions (Mocking real auth since we might not have users created in Supabase yet)
-// But we will use the structure.
-window.login = async function(email, password) {
-  // Using a mock technician id for offline test since Auth might fail with fake URL
-  // In a real app we do: return await supabaseClient.auth.signInWithPassword({ email, password });
+// ── Initialize Supabase Client ──────────────────────────────────
+let supabaseClient = null;
+try {
+  // The UMD bundle exposes `window.supabase` with `createClient`
+  const createFn = (window.supabase && window.supabase.createClient) 
+    || (window.supabase && window.supabase.default && window.supabase.default.createClient);
   
-  // MOCK LOGIN FOR NOW SO IT WORKS OFFLINE AND OFFLINE-FIRST
-  localStorage.setItem('tecnico_id', 'mock-tecnico-1234');
-  localStorage.setItem('tecnico_name', 'Carlos Mendoza');
-  localStorage.setItem('tecnico_email', email);
-  return { data: { user: { id: 'mock-tecnico-1234', email } }, error: null };
+  if (!createFn) {
+    throw new Error('createClient function not found on window.supabase');
+  }
+  
+  supabaseClient = createFn(SUPABASE_URL, SUPABASE_ANON_KEY);
+  console.log('✅ Supabase client initialized successfully');
+  console.log('   URL:', SUPABASE_URL);
+} catch (e) {
+  console.warn('⚠️ Supabase init failed:', e.message);
+  console.warn('   window.supabase =', typeof window.supabase, window.supabase ? Object.keys(window.supabase) : 'N/A');
+}
+
+// ── Auth — Real Supabase Auth ───────────────────────────────────
+
+// Login with email + password
+window.login = async function(email, password) {
+  if (!supabaseClient) {
+    // Fallback for offline: mock login
+    localStorage.setItem('tecnico_name', email.split('@')[0]);
+    localStorage.setItem('tecnico_email', email);
+    return { data: { user: { id: null, email } }, error: null };
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  
+  if (!error && data.user) {
+    // Cache user info locally for offline access
+    const nombre = data.user.user_metadata?.nombre_mostrar || email.split('@')[0];
+    localStorage.setItem('tecnico_id', data.user.id);
+    localStorage.setItem('tecnico_name', nombre);
+    localStorage.setItem('tecnico_email', email);
+  }
+  
+  return { data, error };
 };
 
-window.logout = function() {
+// Register new user with name in metadata
+window.register = async function(email, password, nombre) {
+  if (!supabaseClient) {
+    return { data: null, error: { message: 'Sin conexión a Supabase' } };
+  }
+
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { nombre_mostrar: nombre }
+    }
+  });
+
+  if (!error && data.user) {
+    // Cache locally
+    localStorage.setItem('tecnico_id', data.user.id);
+    localStorage.setItem('tecnico_name', nombre);
+    localStorage.setItem('tecnico_email', email);
+  }
+
+  return { data, error };
+};
+
+// Logout
+window.logout = async function() {
+  if (supabaseClient) {
+    await supabaseClient.auth.signOut();
+  }
   localStorage.removeItem('tecnico_id');
   localStorage.removeItem('tecnico_name');
   localStorage.removeItem('tecnico_email');
 };
 
+// Get current user — checks Supabase session, falls back to localStorage
 window.getCurrentUser = function() {
-  const id = localStorage.getItem('tecnico_id');
-  if (id) {
+  // Try localStorage first (fast, works offline)
+  const email = localStorage.getItem('tecnico_email');
+  if (email) {
     return {
-      id,
-      name: localStorage.getItem('tecnico_name'),
-      email: localStorage.getItem('tecnico_email')
-    }
+      id: localStorage.getItem('tecnico_id'),
+      name: localStorage.getItem('tecnico_name') || 'Técnico',
+      email
+    };
   }
   return null;
 };
 
-// Data Sync functions
-window.syncData = async function() {
-  if (!navigator.onLine) return;
-  console.log('Online: Starting Sync...');
+// Check Supabase session and refresh local cache
+window.checkSession = async function() {
+  if (!supabaseClient) return null;
   
   try {
-    // 1. Sync Labor Codes from Supabase to IndexedDB
-    // const { data: codigos, error: errCodes } = await supabaseClient.from('codigos_labor').select('*');
-    // if (!errCodes && codigos.length > 0) {
-    //   await db.codigos_labor.clear();
-    //   await db.codigos_labor.bulkAdd(codigos);
-    // }
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session && session.user) {
+      const user = session.user;
+      const nombre = user.user_metadata?.nombre_mostrar || user.email.split('@')[0];
+      localStorage.setItem('tecnico_id', user.id);
+      localStorage.setItem('tecnico_name', nombre);
+      localStorage.setItem('tecnico_email', user.email);
+      return { id: user.id, name: nombre, email: user.email };
+    }
+  } catch (e) {
+    console.warn('Session check failed:', e.message);
+  }
+  return null;
+};
 
-    // 2. Sync Unsynced Orders from IndexedDB to Supabase
+// ── Save Order to Supabase (the core function) ─────────────────
+// This is the primary data service. In the future, when offline,
+// the caller (app.js) will catch failures and queue to IndexedDB.
+window.saveOrdenToSupabase = async function(orderData, itemsData) {
+  if (!supabaseClient) {
+    throw new Error('Supabase client not available');
+  }
+
+  // STEP A: Insert into 'ordenes' table
+  const ordenPayload = {
+    numero_contrato: orderData.numero_contrato,
+    total_orden: orderData.total_orden,
+    tecnico_id: null // null temporarily until login is configured
+  };
+
+  const { data: ordenInserted, error: ordenError } = await supabaseClient
+    .from('ordenes')
+    .insert([ordenPayload])
+    .select('id')
+    .single();
+
+  if (ordenError) {
+    console.error('❌ Error inserting orden:', ordenError);
+    throw new Error(`Error al guardar orden: ${ordenError.message}`);
+  }
+
+  const ordenId = ordenInserted.id;
+  console.log('✅ Orden insertada con ID:', ordenId);
+
+  // STEP B: Insert items into 'orden_detalles' table
+  const detallesPayload = itemsData.map(item => ({
+    orden_id: ordenId,
+    labor_codigo: item.labor_codigo,
+    cantidad: item.cantidad,
+    subtotal: item.subtotal
+  }));
+
+  const { error: detallesError } = await supabaseClient
+    .from('orden_detalles')
+    .insert(detallesPayload);
+
+  if (detallesError) {
+    console.error('❌ Error inserting orden_detalles:', detallesError);
+    // The order was created but details failed — log but don't lose the order
+    throw new Error(`Orden creada pero error en detalles: ${detallesError.message}`);
+  }
+
+  console.log('✅ Detalles insertados:', detallesPayload.length, 'items');
+
+  return { ordenId, success: true };
+};
+
+// ── Sync unsynced local orders to Supabase ──────────────────────
+window.syncData = async function() {
+  if (!navigator.onLine) return;
+  if (!supabaseClient) return;
+  
+  console.log('🔄 Online: Starting sync...');
+  
+  try {
     const unsyncedOrdenes = await window.getUnsyncedOrdenes();
+    
     for (const localOrden of unsyncedOrdenes) {
-      console.log('Syncing order: ', localOrden.numero_contrato);
+      console.log('Syncing order:', localOrden.numero_contrato);
       
       const items = await db.orden_items.where('orden_id').equals(localOrden.id).toArray();
+      const totalOrden = items.reduce((sum, item) => sum + item.subtotal, 0);
       
-      // Prepare payload (removing local ID)
-      const ordenPayload = {
-        tecnico_id: localOrden.tecnico_id,
-        numero_contrato: localOrden.numero_contrato,
-        fecha_creacion: localOrden.fecha_creacion,
-        total_orden: items.reduce((sum, item) => sum + item.subtotal, 0),
-        estado_sincronizacion: true
-      };
-
-      // We wrap in try catch so mock failures don't stop the app
       try {
-        // MOCK SYNC (Since Supabase URL is fake, this would normally fail)
-        // const { data: realOrden, error: oError } = await supabaseClient.from('ordenes').insert([ordenPayload]).select().single();
-        // if(oError) throw oError;
-        // 
-        // const itemsPayload = items.map(i => ({
-        //   orden_id: realOrden.id,
-        //   codigo_labor_id: i.codigo_labor_id,
-        //   cantidad: i.cantidad,
-        //   subtotal: i.subtotal
-        // }));
-        // const { error: iError } = await supabaseClient.from('orden_items').insert(itemsPayload);
-        // if(iError) throw iError;
+        const orderData = {
+          numero_contrato: localOrden.numero_contrato,
+          total_orden: totalOrden
+        };
+
+        const itemsData = items.map(i => ({
+          labor_codigo: i.labor_codigo || i.codigo_labor_id,
+          cantidad: i.cantidad,
+          subtotal: i.subtotal
+        }));
+
+        const result = await window.saveOrdenToSupabase(orderData, itemsData);
         
-        // Simulate network delay
-        await new Promise(r => setTimeout(r, 500));
-        
-        // Mark as synced locally
-        await window.markOrdenAsSynced(localOrden.id);
+        // Mark as synced in IndexedDB
+        await window.markOrdenAsSynced(localOrden.id, result.ordenId);
+        console.log('✅ Order synced:', localOrden.numero_contrato);
       } catch (e) {
-        console.warn('Sync failed for order', localOrden.numero_contrato, e);
+        console.warn('⚠️ Sync failed for order', localOrden.numero_contrato, e.message);
       }
     }
     
-    // Trigger an event so UI can update the green dot
     window.dispatchEvent(new Event('sync-complete'));
     
   } catch (error) {
-    console.error('Sync Error', error);
+    console.error('Sync error:', error);
   }
 };
 
