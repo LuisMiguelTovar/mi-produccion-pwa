@@ -110,3 +110,15 @@ async function markOrdenAsSynced(id, newId) {
 window.getUnsyncedOrdenes = getUnsyncedOrdenes;
 window.markOrdenAsSynced = markOrdenAsSynced;
 
+async function deleteOrden(id) {
+  return await db.transaction('rw', db.ordenes, db.orden_items, async () => {
+    // Delete related items
+    const items = await db.orden_items.where('orden_id').equals(id).toArray();
+    for (const item of items) {
+      await db.orden_items.delete(item.id);
+    }
+    await db.ordenes.delete(id);
+  });
+}
+window.deleteOrden = deleteOrden;
+

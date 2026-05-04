@@ -205,11 +205,30 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // --- Fortnight Select Logic ---
-  const quincenaSelect = document.getElementById('quincena-select');
-  if (quincenaSelect) {
-    quincenaSelect.addEventListener('change', () => {
+  const dateFromInput = document.getElementById('date-from');
+  const dateToInput = document.getElementById('date-to');
+  
+  if (dateFromInput && dateToInput) {
+    // Restore locally saved dates if available
+    const savedFrom = localStorage.getItem('filterDateFrom');
+    const savedTo = localStorage.getItem('filterDateTo');
+    
+    // Default to first 15 days of current month if not saved
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    
+    dateFromInput.value = savedFrom || `${y}-${m}-01`;
+    dateToInput.value = savedTo || `${y}-${m}-15`;
+
+    const updateFilter = () => {
+      localStorage.setItem('filterDateFrom', dateFromInput.value);
+      localStorage.setItem('filterDateTo', dateToInput.value);
       calculateStats(currentAllOrders);
-    });
+    };
+
+    dateFromInput.addEventListener('change', updateFilter);
+    dateToInput.addEventListener('change', updateFilter);
   }
 
   function renderOrdersList(orders) {
@@ -251,14 +270,41 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
         <div class="oc-right" style="display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;height:100%;">
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+          <div style="display:flex;align-items:center;gap:10px;">
             <div class="oc-amt">${formatMoney(order.total)}</div>
-            <div class="oc-time">Creada ${displayTime.toLowerCase()}</div>
+            <div class="oc-del-btn" data-id="${order.id}" style="cursor:pointer;padding:4px;background:#FEE2E2;border-radius:6px;transition:background .1s;">
+              <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:#EF4444;fill:none;stroke-width:2;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </div>
           </div>
-          <div class="oc-chevron" style="margin-left:0;margin-top:auto;"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+          <div class="oc-time" style="margin-top:auto;">Creada ${displayTime.toLowerCase()}</div>
         </div>
       `;
       recentOrdersList.appendChild(el);
+    });
+
+    // Attach delete listeners
+    recentOrdersList.querySelectorAll('.oc-del-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const orderId = e.currentTarget.dataset.id;
+        if (confirm('¿Estás seguro de eliminar esta orden?')) {
+          try {
+            // Delete from Supabase
+            if (navigator.onLine && window.supabaseClient) {
+              const { error } = await window.supabaseClient.from('ordenes').delete().eq('id', orderId);
+              if (error) console.error('Error deleting from supabase:', error);
+            }
+            // Delete from IndexedDB (local)
+            await window.deleteOrden(orderId);
+            
+            showToast('Orden eliminada', 'success');
+            loadDashboard(); // Refresh
+          } catch (err) {
+            console.error('Error deleting order:', err);
+            showToast('Error al eliminar orden', 'error');
+          }
+        }
+      });
     });
   }
 
@@ -268,7 +314,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let countDia = 0;
     let totalQuincena = 0;
 
-    const filterVal = document.getElementById('quincena-select') ? document.getElementById('quincena-select').value : 'current';
+    const filterFrom = document.getElementById('date-from')?.value;
+    const filterTo = document.getElementById('date-to')?.value;
 
     orders.forEach(o => {
       const oDateStr = o.fecha_creacion.split('T')[0];
@@ -277,14 +324,10 @@ document.addEventListener('DOMContentLoaded', () => {
         countDia++;
       }
       
-      const oDate = new Date(o.fecha_creacion);
-      const day = oDate.getDate();
-      
-      // Simulate fortnight filter calculation
-      if (filterVal === 'current') {
-         if (day >= 1 && day <= 15) totalQuincena += o.total;
-      } else if (filterVal === 'prev') {
-         if (day >= 16 && day <= 31) totalQuincena += o.total;
+      if (filterFrom && filterTo) {
+        if (oDateStr >= filterFrom && oDateStr <= filterTo) {
+          totalQuincena += o.total;
+        }
       }
     });
 
@@ -294,10 +337,32 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // --- New Order Logic ---
+  
+  // Photo attach logic
+  const btnAttachPhoto = document.getElementById('btn-attach-photo');
+  const fotoInput = document.getElementById('foto-input');
+  const fotoFileName = document.getElementById('foto-file-name');
+  
+  if (btnAttachPhoto && fotoInput) {
+    btnAttachPhoto.addEventListener('click', () => {
+      fotoInput.click();
+    });
+    
+    fotoInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        fotoFileName.textContent = e.target.files[0].name;
+      } else {
+        fotoFileName.textContent = 'Adjuntar foto (Opcional)';
+      }
+    });
+  }
+
   function resetNewOrderForm() {
     newContractInput.value = '';
     laborSearch.value = '';
     searchResults.classList.remove('active');
+    if (fotoInput) fotoInput.value = '';
+    if (fotoFileName) fotoFileName.textContent = 'Adjuntar foto (Opcional)';
     currentNewOrderItems = [];
     renderNewOrderItems();
   }
