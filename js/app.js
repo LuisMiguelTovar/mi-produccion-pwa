@@ -71,6 +71,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const sessionUser = await window.checkSession();
     const user = sessionUser || window.getCurrentUser();
     
+    // Dynamic Current Date
+    const currentDateEl = document.getElementById('current-date');
+    if (currentDateEl) {
+      const today = new Date();
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      const dateStr = new Intl.DateTimeFormat('es-ES', options).format(today);
+      currentDateEl.textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+    }
+
     if (user) {
       showView(viewDashboard);
       userNameEl.textContent = user.name || 'Técnico';
@@ -258,6 +267,75 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // --- View All Logic ---
+  let showAllOrders = false;
+  const btnViewAll = document.getElementById('btn-view-all');
+  if (btnViewAll) {
+    btnViewAll.addEventListener('click', (e) => {
+      e.preventDefault();
+      showAllOrders = true;
+      renderOrdersList(currentAllOrders);
+      btnViewAll.style.display = 'none';
+    });
+  }
+
+  // --- Download Excel Logic ---
+  const btnDownloadExcel = document.getElementById('btn-download-excel');
+  if (btnDownloadExcel) {
+    btnDownloadExcel.addEventListener('click', () => {
+      const filterFrom = document.getElementById('date-from')?.value;
+      const filterTo = document.getElementById('date-to')?.value;
+      
+      let timeInicio = 0, timeFin = Infinity;
+      if (filterFrom && filterTo) {
+        const [fYear, fMonth, fDay] = filterFrom.split('-');
+        timeInicio = new Date(fYear, fMonth - 1, fDay, 0, 0, 0).getTime();
+        const [tYear, tMonth, tDay] = filterTo.split('-');
+        timeFin = new Date(tYear, tMonth - 1, tDay, 23, 59, 59).getTime();
+      }
+
+      const exportOrders = currentAllOrders.filter(o => {
+        const timeOrden = new Date(o.fecha_creacion).getTime();
+        return timeOrden >= timeInicio && timeOrden <= timeFin;
+      });
+
+      if (exportOrders.length === 0) {
+        showToast('No hay órdenes para exportar en este rango', 'error');
+        return;
+      }
+
+      let csvContent = "Contrato,Fecha,Total,Codigos,Estado\n";
+      exportOrders.forEach(o => {
+        const contrato = o.numero_contrato || '';
+        const fecha = new Date(o.fecha_creacion).toLocaleString('es-CO');
+        const total = o.total || 0;
+        const codigos = `"${o.codigos || ''}"`;
+        const estado = o.estado_sincronizacion ? 'Sincronizada' : 'Pendiente';
+        csvContent += `${contrato},${fecha},${total},${codigos},${estado}\n`;
+      });
+
+      const blob = new Blob(["\ufeff", csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `ordenes_quincena_${filterFrom || 'todas'}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Descargando archivo Excel/CSV...', 'success');
+    });
+  }
+      const term = e.target.value.trim().toLowerCase();
+      if (!term) {
+        renderOrdersList(currentAllOrders);
+        return;
+      }
+      const filtered = currentAllOrders.filter(o => String(o.numero_contrato).toLowerCase().includes(term));
+      renderOrdersList(filtered);
+    });
+  }
+
   // --- Fortnight Select Logic ---
   const dateFromInput = document.getElementById('date-from');
   const dateToInput = document.getElementById('date-to');
@@ -323,7 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     console.log('Órdenes que pasaron el filtro:', filteredOrders);
 
-    const ordersToShow = filteredOrders.slice(0, 20);
+    const ordersToShow = showAllOrders ? filteredOrders : filteredOrders.slice(0, 20);
     ordersCountBadge.textContent = ordersToShow.length > 0 ? `(${ordersToShow.length})` : '';
     
     if (ordersToShow.length === 0) {
