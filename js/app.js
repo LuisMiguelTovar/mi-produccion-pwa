@@ -846,3 +846,4 @@ if ('serviceWorker' in navigator) {
     });
   });
 }
+});
