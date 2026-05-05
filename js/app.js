@@ -326,15 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('Descargando archivo Excel/CSV...', 'success');
     });
   }
-  const term = e.target.value.trim().toLowerCase();
-  if (!term) {
-    renderOrdersList(currentAllOrders);
-    return;
-  }
-  const filtered = currentAllOrders.filter(o => String(o.numero_contrato).toLowerCase().includes(term));
-  renderOrdersList(filtered);
-});
-  }
+
 
 // --- Fortnight Select Logic ---
 const dateFromInput = document.getElementById('date-from');
