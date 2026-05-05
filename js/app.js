@@ -179,6 +179,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Dashboard Logic ---
   async function loadDashboard() {
+    if (navigator.onLine && window.fetchSupabaseOrders) {
+      const remoteOrders = await window.fetchSupabaseOrders();
+      if (remoteOrders && remoteOrders.length > 0) {
+        try {
+          await db.transaction('rw', db.codigos_labor, db.ordenes, db.orden_items, async () => {
+            const orderIds = remoteOrders.map(o => o.id);
+            await db.orden_items.where('orden_id').anyOf(orderIds).delete();
+
+            const ordenesToPut = [];
+            const itemsToPut = [];
+
+            for (const o of remoteOrders) {
+              ordenesToPut.push({
+                id: o.id,
+                tecnico_id: o.tecnico_id,
+                numero_contrato: o.numero_contrato,
+                fecha_creacion: o.created_at || o.fecha_creacion || new Date().toISOString(),
+                estado_sincronizacion: true
+              });
+
+              if (o.orden_detalles && o.orden_detalles.length > 0) {
+                for (const item of o.orden_detalles) {
+                  // Try to find the internal ID from codigos_labor
+                  const localLabor = await db.codigos_labor.where('codigo').equals(String(item.labor_codigo)).first();
+                  itemsToPut.push({
+                    orden_id: o.id,
+                    codigo_labor_id: localLabor ? localLabor.id : item.labor_codigo,
+                    cantidad: item.cantidad,
+                    subtotal: item.subtotal
+                  });
+                }
+              }
+            }
+
+            await db.ordenes.bulkPut(ordenesToPut);
+            if (itemsToPut.length > 0) {
+              await db.orden_items.bulkPut(itemsToPut);
+            }
+          });
+          console.log('✅ Base de datos local actualizada con Supabase');
+        } catch (e) {
+          console.error('Error al poblar Dexie:', e);
+        }
+      }
+    }
+
     currentAllOrders = await getOrdenesRecientes();
     renderOrdersList(currentAllOrders);
     calculateStats(currentAllOrders);

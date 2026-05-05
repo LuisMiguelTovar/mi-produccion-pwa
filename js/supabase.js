@@ -215,3 +215,21 @@ window.syncData = async function () {
 
 // Auto-sync when coming online
 window.addEventListener('online', window.syncData);
+
+// ── Fetch Orders from Supabase ──────────────────────────────────
+window.fetchSupabaseOrders = async function() {
+  if (!supabaseClient) return [];
+  try {
+    // Select global y directo, sin filtros de autenticación
+    const { data, error } = await supabaseClient.from('ordenes').select('*, orden_detalles(*)');
+    if (error) {
+      console.error('Error al descargar ordenes:', error);
+      return [];
+    }
+    console.log('Total descargado de Supabase:', data ? data.length : 0);
+    return data || [];
+  } catch (e) {
+    console.error('Error in fetchSupabaseOrders:', e);
+    return [];
+  }
+};
