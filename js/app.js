@@ -171,7 +171,29 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   btnLogout.addEventListener('click', async () => {
+    // 1. Cerrar la sesión en el servidor y limpiar localStorage
+    if (window.supabaseClient) {
+      await window.supabaseClient.auth.signOut();
+    }
     await window.logout();
+    
+    // 2. Limpiar por completo la base de datos local de Dexie
+    try {
+      await db.ordenes.clear();
+      await db.orden_items.clear();
+      console.log('✅ Base de datos local limpiada tras cerrar sesión');
+    } catch (e) {
+      console.error('Error limpiando Dexie en logout:', e);
+    }
+
+    // 3. Limpiar la interfaz (variables de totales y lista de órdenes)
+    currentAllOrders = [];
+    if (totalDiaEl) totalDiaEl.textContent = formatMoney(0);
+    if (countDiaEl) countDiaEl.textContent = '0';
+    if (totalQuincenaEl) totalQuincenaEl.textContent = formatMoney(0);
+    if (recentOrdersList) recentOrdersList.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--muted); font-size: 12px;">No hay órdenes recientes</div>';
+    if (ordersCountBadge) ordersCountBadge.textContent = '';
+
     showView(viewLogin);
   });
 
