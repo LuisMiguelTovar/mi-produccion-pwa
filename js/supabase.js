@@ -128,7 +128,7 @@ window.saveOrdenToSupabase = async function (orderData, itemsData) {
   const ordenPayload = {
     numero_contrato: orderData.numero_contrato,
     total_orden: orderData.total_orden,
-    tecnico_id: null // null temporarily until login is configured
+    tecnico_id: orderData.tecnico_id
   };
 
   const { data: ordenInserted, error: ordenError } = await supabaseClient
@@ -173,6 +173,12 @@ window.syncData = async function () {
   if (!navigator.onLine) return;
   if (!supabaseClient) return;
 
+  const user = await window.checkSession() || window.getCurrentUser();
+  if (!user || !user.id) {
+    console.warn('Sync aborted: User ID is missing.');
+    return;
+  }
+
   console.log('🔄 Online: Starting sync...');
 
   try {
@@ -187,7 +193,8 @@ window.syncData = async function () {
       try {
         const orderData = {
           numero_contrato: localOrden.numero_contrato,
-          total_orden: totalOrden
+          total_orden: totalOrden,
+          tecnico_id: localOrden.tecnico_id || user.id
         };
 
         const itemsData = items.map(i => ({
@@ -219,6 +226,10 @@ window.addEventListener('online', window.syncData);
 // ── Fetch Orders from Supabase ──────────────────────────────────
 window.fetchSupabaseOrders = async function() {
   if (!supabaseClient) return [];
+  
+  const user = await window.checkSession() || window.getCurrentUser();
+  if (!user || !user.id) return [];
+
   try {
     // Select global y directo, sin filtros de autenticación
     const { data, error } = await supabaseClient.from('ordenes').select('*, orden_detalles(*)');

@@ -703,10 +703,17 @@ btnSaveOrder.addEventListener('click', async () => {
   btnSaveOrder.style.opacity = '0.7';
 
   try {
+    const user = await window.checkSession() || window.getCurrentUser();
+    if (!user || !user.id) {
+      showToast('Sesión inválida. Vuelve a iniciar sesión.', 'error');
+      return;
+    }
+
     // Prepare payloads
     const orderData = {
       numero_contrato: newContractInput.value.trim(),
-      total_orden: totalOrden
+      total_orden: totalOrden,
+      tecnico_id: user.id
     };
 
     const itemsData = currentNewOrderItems.map(i => ({
